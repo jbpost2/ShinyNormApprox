@@ -2,7 +2,7 @@ library(shiny)
 
 # Define server logic required to draw the plots and find probabilities
 shinyServer(function(input, output,session) {
- 
+  
   observe({
     dist <- input$dist
       
@@ -27,7 +27,7 @@ shinyServer(function(input, output,session) {
     #shading stuff
     Lower<-input$probL
     Upper<-input$probU
-      
+    
     if (is.integer(Lower)==FALSE){
       Lower<-ceiling(Lower)
     }
@@ -44,24 +44,34 @@ shinyServer(function(input, output,session) {
       x <- seq(from=0,to=n,by=1)
       #draw the parent distribution plot
       plot(x=x,y=dbinom(x=x,size=n,prob=prob),main=paste(dist," Density"),xlab="y", ylab="f(y)",type="h")
-
+      
+      if(!is.na(Lower)&!is.na(Upper)){
+          if (Lower<=Upper) {
+            #boldify the bars of interest
+            bin_seq <- seq(from = Lower, to = Upper, by = 1)
+            lines(x=bin_seq,y=dbinom(x=bin_seq,size=n,prob=prob), type = "h", lwd = 5, col = "blue")
+          }
+        }
+      
       if (normal){
-        normx<-seq(from=0,to=n*prob+4*n*prob*(1-prob)+100,length=5000)
-        lines(normx,dnorm(normx,mean=n*prob,sd=sqrt(n*prob*(1-prob))))
-        
-        #add plot fill if requested
-        if (color&(!is.na(Lower))&(!is.na(Upper))){
-          shortseq<-seq(from=Lower,to= Upper,by=0.005)
-          polygon(c(shortseq,rev(shortseq)),c(rep(0,length(shortseq)),rev(dnorm(shortseq,mean=n*prob,sd=sqrt(n*prob*(1-prob))))),col=rgb(0.3,0.1,0.5,0.3))
+          normx<-seq(from=0,to=n*prob+4*n*prob*(1-prob)+100,length=5000)
+          lines(normx,dnorm(normx,mean=n*prob,sd=sqrt(n*prob*(1-prob))))
+          #add plot fill if requested
+          if (color&(!is.na(Lower))&(!is.na(Upper))){
+            if (Lower<=Upper) {
+              shortseq<-seq(from=Lower,to= Upper,by=0.005)
+              polygon(c(shortseq,rev(shortseq)),c(rep(0,length(shortseq)),rev(dnorm(shortseq,mean=n*prob,sd=sqrt(n*prob*(1-prob))))),col=rgb(0.3,0.1,0.5,0.3))
+            }
+          }
+          
+          #add plot fill if requested (for cc)
+          if (color2&(!is.na(Lower))&(!is.na(Upper))){
+            if (Lower<=Upper) {
+              shortseq<-seq(from=Lower-0.5,to= Upper+0.5,by=0.005)
+              polygon(c(shortseq,rev(shortseq)),c(rep(0,length(shortseq)),rev(dnorm(shortseq,mean=n*prob,sd=sqrt(n*prob*(1-prob))))),col=rgb(0.8,0.4,0.1,0.3))
+            }
+          }
         }
-        
-        #add plot fill if requested (for cc)
-        if (color2&(!is.na(Lower))&(!is.na(Upper))){
-          shortseq<-seq(from=Lower-0.5,to= Upper+0.5,by=0.005)
-          polygon(c(shortseq,rev(shortseq)),c(rep(0,length(shortseq)),rev(dnorm(shortseq,mean=n*prob,sd=sqrt(n*prob*(1-prob))))),col=rgb(0.8,0.4,0.1,0.3))
-        }
-        
-      }
     } else if (dist=="Poisson") {
       #parameters
       lambda<-input$param1
@@ -72,20 +82,33 @@ shinyServer(function(input, output,session) {
       #draw the parent distribution plot
       plot(x=x,y=dpois(x=x,lambda=lambda),main=paste(dist," Density"),xlab="y", ylab="f(y)",type="h")
       
+      if(!is.na(Lower)&!is.na(Upper)){
+        if (Lower<=Upper) {
+          #boldify the bars of interest
+          poi_seq <- seq(from = Lower, to = Upper, by = 1)
+          lines(x=poi_seq,y=dpois(x=poi_seq,lambda = lambda), type = "h", lwd = 5, col = "blue")
+        }
+      }
+      
+      
       if(normal){
         normx<-seq(from=0,to=lambda+4*sqrt(lambda),length=5000)
         lines(normx,dnorm(normx,mean=lambda,sd=sqrt(lambda)))
 
         #add plot fill if requested        
         if (color&(!is.na(Lower))&(!is.na(Upper))){
-          shortseq<-seq(from=Lower,to= Upper,by=0.005)
-          polygon(c(shortseq,rev(shortseq)),c(rep(0,length(shortseq)),rev(dnorm(shortseq,mean=lambda,sd=sqrt(lambda)))),col=rgb(0.3,0.1,0.5,0.3))
+          if (Lower<=Upper) {
+            shortseq<-seq(from=Lower,to= Upper,by=0.005)
+            polygon(c(shortseq,rev(shortseq)),c(rep(0,length(shortseq)),rev(dnorm(shortseq,mean=lambda,sd=sqrt(lambda)))),col=rgb(0.3,0.1,0.5,0.3))
+          }
         }
 
         #add plot fill if requested (for cc)        
         if (color2&(!is.na(Lower))&(!is.na(Upper))){
-          shortseq<-seq(from=Lower-0.5,to= Upper+0.5,by=0.005)
-          polygon(c(shortseq,rev(shortseq)),c(rep(0,length(shortseq)),rev(dnorm(shortseq,mean=lambda,sd=sqrt(lambda)))),col=rgb(0.8,0.4,0.1,0.3))
+          if (Lower<=Upper) {
+            shortseq<-seq(from=Lower-0.5,to= Upper+0.5,by=0.005)
+            polygon(c(shortseq,rev(shortseq)),c(rep(0,length(shortseq)),rev(dnorm(shortseq,mean=lambda,sd=sqrt(lambda)))),col=rgb(0.8,0.4,0.1,0.3))
+          }
          }
       }
     } 
@@ -106,32 +129,38 @@ shinyServer(function(input, output,session) {
       Upper<-floor(Upper)
     }    
     
+    probExact <- probNorm <- probNormCC <- NA
     #Find probabilities
     if (dist=="Binomial"){
       n<-input$param1
       prob<-input$param2
-
-      #exact
-      probExact<-pbinom(q=Upper,size=n,prob=prob)-pbinom(q=Lower-1,size=n,prob=prob)
-      
-      #Norm approx
-      probNorm<-pnorm(q=Upper,mean=n*prob,sd=sqrt(n*prob*(1-prob)))-pnorm(q=Lower,mean=n*prob,sd=sqrt(n*prob*(1-prob)))
-      
-      #Norm approx with cc
-      probNormCC<-pnorm(q=Upper+0.5,mean=n*prob,sd=sqrt(n*prob*(1-prob)))-pnorm(q=Lower-0.5,mean=n*prob,sd=sqrt(n*prob*(1-prob)))
-      
+      if(!is.na(Lower)&!is.na(Upper)){
+        if (Lower <= Upper){
+          #exact
+          probExact<-pbinom(q=Upper,size=n,prob=prob)-pbinom(q=Lower-1,size=n,prob=prob)
+          
+          #Norm approx
+          probNorm<-pnorm(q=Upper,mean=n*prob,sd=sqrt(n*prob*(1-prob)))-pnorm(q=Lower,mean=n*prob,sd=sqrt(n*prob*(1-prob)))
+          
+          #Norm approx with cc
+          probNormCC<-pnorm(q=Upper+0.5,mean=n*prob,sd=sqrt(n*prob*(1-prob)))-pnorm(q=Lower-0.5,mean=n*prob,sd=sqrt(n*prob*(1-prob)))
+        }
+      }
     } else if (dist=="Poisson"){
       lambda<-input$param1
       
-      #Exact
-      probExact<-ppois(q=Upper,lambda=lambda)-ppois(q=Lower-1,lambda=lambda)
-      
-      #Norm Approx
-      probNorm<-pnorm(q=Upper,mean=lambda,sd=sqrt(lambda))-pnorm(q=Lower,mean=lambda,sd=sqrt(lambda))
-      
-      #Norm Approx with cc
-      probNormCC<-pnorm(q=Upper+0.5,mean=lambda,sd=sqrt(lambda))-pnorm(q=Lower-0.5,mean=lambda,sd=sqrt(lambda))
-      
+      if(!is.na(Lower)&!is.na(Upper)){
+        if (Lower <= Upper){
+        #Exact
+        probExact<-ppois(q=Upper,lambda=lambda)-ppois(q=Lower-1,lambda=lambda)
+        
+        #Norm Approx
+        probNorm<-pnorm(q=Upper,mean=lambda,sd=sqrt(lambda))-pnorm(q=Lower,mean=lambda,sd=sqrt(lambda))
+        
+        #Norm Approx with cc
+        probNormCC<-pnorm(q=Upper+0.5,mean=lambda,sd=sqrt(lambda))-pnorm(q=Lower-0.5,mean=lambda,sd=sqrt(lambda))
+        }
+      }
     }
     
     #put results in data frame to display
